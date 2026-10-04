@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { getLang, setLang, t, translatePage, type Lang } from './i18n';
 import './style.css';
 
 type Fit = 'contain' | 'cover';
@@ -115,8 +116,8 @@ function layoutPage(items: Photo[], s: Settings): Placement[] {
 function render(): void {
   const s = settings();
   $('count').textContent = photos.length
-    ? `Фото: ${photos.length}, страниц: ${Math.ceil(photos.length / s.perPage)}`
-    : 'Нет фото';
+    ? t('count', { n: photos.length, pages: Math.ceil(photos.length / s.perPage) })
+    : t('noPhotos');
   $('clear').hidden = !photos.length;
   $<HTMLButtonElement>('make').disabled = !photos.length;
 
@@ -126,7 +127,7 @@ function render(): void {
     el.className = 'thumb';
     el.draggable = true;
     el.dataset.id = String(p.id);
-    el.innerHTML = `<img src="${p.url}" alt=""><button class="rm" title="Убрать">×</button>`;
+    el.innerHTML = `<img src="${p.url}" alt=""><button class="rm" title="${t('remove')}">×</button>`;
     thumbs.append(el);
   }
   renderPreview(s);
@@ -136,7 +137,10 @@ function renderPreview(s: Settings = settings()): void {
   const root = $('preview');
   root.innerHTML = '';
   if (!photos.length) {
-    root.innerHTML = '<div class="empty">Добавьте фото — здесь появится предпросмотр страниц</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = t('empty');
+    root.append(empty);
     return;
   }
   paginate(photos, s.perPage).forEach((items, i) => {
@@ -181,7 +185,7 @@ async function addFiles(files: File[]): Promise<void> {
     }
   }
   render();
-  if (skipped.length) alert('Браузер не смог открыть:\n' + skipped.join('\n'));
+  if (skipped.length) alert(t('cantOpen') + '\n' + skipped.join('\n'));
 }
 
 // Redraws the photo as a JPEG of the needed size; for cover, crops it to the cell aspect ratio
@@ -219,15 +223,15 @@ async function makePdf(): Promise<void> {
       if (i) doc.addPage();
       for (const r of layoutPage(pages[i], s)) {
         doc.addImage(await toJpeg(r.photo, r, s.fit), 'JPEG', r.x, r.y, r.w, r.h);
-        btn.textContent = `Готовлю… ${++done} / ${photos.length}`;
+        btn.textContent = t('preparing', { done: ++done, total: photos.length });
       }
     }
     doc.save('photos.pdf');
   } catch (e) {
     console.error(e);
-    alert('Не получилось собрать PDF: ' + (e instanceof Error ? e.message : String(e)));
+    alert(t('pdfFailed') + ' ' + (e instanceof Error ? e.message : String(e)));
   } finally {
-    btn.textContent = 'Скачать PDF';
+    btn.textContent = t('download');
     btn.disabled = !photos.length;
   }
 }
@@ -248,6 +252,18 @@ $('clear').onclick = () => {
   render();
 };
 for (const id of ['format', 'orient', 'perPage', 'margin', 'gap', 'fit']) $(id).oninput = render;
+
+function applyLang(): void {
+  translatePage();
+  render();
+}
+for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-lang]')) {
+  btn.onclick = () => {
+    if (btn.dataset.lang === getLang()) return;
+    setLang(btn.dataset.lang as Lang);
+    applyLang();
+  };
+}
 
 const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 addEventListener('dragover', e => {
@@ -301,3 +317,5 @@ thumbs.ondragend = () => {
   movingId = null;
   render();
 };
+
+applyLang();

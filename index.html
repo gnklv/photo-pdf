@@ -13,59 +13,65 @@
 <body>
 <div class="app">
   <aside>
-    <h1>Фото → PDF</h1>
+    <header>
+      <h1 data-i18n="heading">Фото → PDF</h1>
+      <div class="lang" role="group" data-i18n-label="language">
+        <button type="button" data-lang="ru">RU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+    </header>
 
     <div class="drop" id="drop">
-      <span class="mouse-only">Перетащите фото сюда<br>или нажмите, чтобы выбрать</span>
-      <span class="touch-only">Нажмите, чтобы выбрать фото</span>
+      <span class="mouse-only" data-i18n="dropMouse">Перетащите фото сюда
+или нажмите, чтобы выбрать</span>
+      <span class="touch-only" data-i18n="dropTouch">Нажмите, чтобы выбрать фото</span>
       <input type="file" id="file" accept="image/*" multiple hidden>
     </div>
 
     <div class="fields">
-      <label>Формат
+      <label><span data-i18n="format">Формат</span>
         <select id="format">
           <option value="210x297">A4</option>
           <option value="148x210">A5</option>
           <option value="297x420">A3</option>
           <option value="215.9x279.4">Letter</option>
-          <option value="102x152">10×15 см</option>
+          <option value="102x152" data-i18n="size10x15">10×15 см</option>
         </select>
       </label>
-      <label>Ориентация
+      <label><span data-i18n="orientation">Ориентация</span>
         <select id="orient">
-          <option value="p">Книжная</option>
-          <option value="l">Альбомная</option>
+          <option value="p" data-i18n="portrait">Книжная</option>
+          <option value="l" data-i18n="landscape">Альбомная</option>
         </select>
       </label>
-      <label class="wide">Фото на странице
+      <label class="wide"><span data-i18n="perPage">Фото на странице</span>
         <input type="number" id="perPage" min="1" max="30" value="4">
       </label>
-      <label>Поля, мм
+      <label><span data-i18n="margin">Поля, мм</span>
         <input type="number" id="margin" min="0" max="50" value="10">
       </label>
-      <label>Отступ между фото, мм
+      <label><span data-i18n="gap">Отступ между фото, мм</span>
         <input type="number" id="gap" min="0" max="50" value="5">
       </label>
-      <label class="wide">Вписывание
+      <label class="wide"><span data-i18n="fit">Вписывание</span>
         <select id="fit">
-          <option value="contain">Целиком, без обрезки</option>
-          <option value="cover">Заполнить ячейку (с обрезкой)</option>
+          <option value="contain" data-i18n="fitContain">Целиком, без обрезки</option>
+          <option value="cover" data-i18n="fitCover">Заполнить ячейку (с обрезкой)</option>
         </select>
       </label>
     </div>
 
     <div class="info">
       <span id="count">Нет фото</span>
-      <button class="ghost" id="clear" hidden>Очистить</button>
+      <button class="ghost" id="clear" data-i18n="clear" hidden>Очистить</button>
     </div>
     <div class="thumbs" id="thumbs"></div>
 
     <div class="spacer"></div>
-    <button id="make" disabled>Скачать PDF</button>
+    <button id="make" data-i18n="download" disabled>Скачать PDF</button>
   </aside>
 
   <main id="preview">
-    <div class="empty">Добавьте фото — здесь появится предпросмотр страниц</div>
   </main>
 </div>
 

@@ -19,7 +19,15 @@ aside {
   padding: 20px; display: flex; flex-direction: column; gap: 18px;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 h1 { font-size: 18px; margin: 0; }
+.lang { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex: none; }
+.lang button {
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
+  padding: 5px 9px; border-radius: 0;
+}
+.lang button[aria-pressed=true] { background: var(--accent); color: var(--accent-text); }
+.drop span { white-space: pre-line; }
 .drop {
   border: 2px dashed var(--border); border-radius: 12px; padding: 22px 12px;
   text-align: center; color: var(--muted); cursor: pointer; transition: .15s;
