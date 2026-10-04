@@ -9,7 +9,7 @@ Everything runs in the browser — your photos are never uploaded anywhere.
 ## Features
 
 - Add photos by drag and drop or through the file picker
-- Reorder by dragging thumbnails, remove individual photos
+- Reorder photos by dragging them — in the thumbnail list or right on the page preview (press and hold on touch screens); remove individual photos
 - Photos are split across pages evenly: 10 photos at 4 per page gives 4, 3, 3
 - The grid on each page is chosen so the photos come out as large as possible
 - Settings: page format (A4, A5, A3, Letter, 10×15 cm), orientation, photos per page, margins, gaps, fit whole or crop to fill

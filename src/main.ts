@@ -119,13 +119,13 @@ function render(): void {
     ? t('count', { n: photos.length, pages: Math.ceil(photos.length / s.perPage) })
     : t('noPhotos');
   $('clear').hidden = !photos.length;
+  $('hint').hidden = photos.length < 2;
   $<HTMLButtonElement>('make').disabled = !photos.length;
 
   thumbs.innerHTML = '';
   for (const p of photos) {
     const el = document.createElement('div');
     el.className = 'thumb';
-    el.draggable = true;
     el.dataset.id = String(p.id);
     el.innerHTML = `<img src="${p.url}" alt=""><button class="rm" title="${t('remove')}">×</button>`;
     thumbs.append(el);
@@ -150,6 +150,9 @@ function renderPreview(s: Settings = settings()): void {
     for (const r of layoutPage(items, s)) {
       const img = document.createElement('img');
       img.src = r.photo.url;
+      img.alt = '';
+      img.draggable = false;
+      img.dataset.id = String(r.photo.id);
       img.style.cssText = `left:${r.x / s.w * 100}%;top:${r.y / s.h * 100}%;` +
         `width:${r.w / s.w * 100}%;height:${r.h / s.h * 100}%;object-fit:${s.fit}`;
       page.append(img);
@@ -279,43 +282,146 @@ addEventListener('drop', e => {
   addFiles([...(e.dataTransfer?.files ?? [])]);
 });
 
-// removing thumbnails and dragging them to reorder
-const thumbOf = (target: EventTarget | null) =>
-  target instanceof Element ? target.closest<HTMLElement>('.thumb') : null;
-let movingId: number | null = null;
+const photoOf = (target: EventTarget | null) =>
+  target instanceof Element ? target.closest<HTMLElement>('[data-id]') : null;
 
 thumbs.onclick = e => {
   if (!(e.target instanceof Element) || !e.target.classList.contains('rm')) return;
-  const id = Number(thumbOf(e.target)?.dataset.id);
+  const id = Number(photoOf(e.target)?.dataset.id);
   const p = photos.find(p => p.id === id);
   if (!p) return;
   URL.revokeObjectURL(p.url);
   photos = photos.filter(p => p.id !== id);
   render();
 };
-thumbs.ondragstart = e => {
-  const el = thumbOf(e.target);
-  if (!el || !e.dataTransfer) return;
-  movingId = Number(el.dataset.id);
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', '');
-  requestAnimationFrame(() => el.classList.add('moving'));
-};
-thumbs.ondragover = e => {
-  if (movingId === null) return;
-  e.preventDefault();
-  const over = thumbOf(e.target);
-  if (!over || Number(over.dataset.id) === movingId) return;
-  const from = photos.findIndex(p => p.id === movingId);
-  const to = photos.findIndex(p => p.id === Number(over.dataset.id));
-  const moving = thumbs.querySelector(`[data-id="${movingId}"]`);
-  if (from < 0 || to < 0 || !moving) return;
+
+// --- drag to reorder ---
+// Works the same on thumbnails and on photos in the page preview. A mouse starts dragging
+// after a small move; a finger has to hold first, so that swiping still scrolls the page.
+// The order changes once, on drop: reflowing pages mid-drag would make targets jump around.
+interface Drag {
+  id: number;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  active: boolean;
+  timer: number;
+  ghost: HTMLElement | null;
+  targetId: number | null;
+}
+
+const LONG_PRESS_MS = 300;
+const MOUSE_SLOP = 4;   // px a mouse must travel before a click turns into a drag
+const TOUCH_SLOP = 10;  // px a finger may wander while holding
+const EDGE = 70;        // px from the top/bottom of the viewport where dragging scrolls the page
+let drag: Drag | null = null;
+
+const elementsOf = (id: number | null) =>
+  id === null ? [] : [...document.querySelectorAll<HTMLElement>(`[data-id="${id}"]`)];
+
+function startDrag(): void {
+  if (!drag || drag.active) return;
+  const photo = photos.find(p => p.id === drag!.id);
+  if (!photo) { endDrag(false); return; }
+  clearTimeout(drag.timer);
+  drag.active = true;
+
+  const size = 110, k = size / Math.max(photo.w, photo.h);
+  const ghost = document.createElement('img');
+  ghost.className = 'drag-ghost';
+  ghost.src = photo.url;
+  ghost.alt = '';
+  ghost.style.width = `${photo.w * k}px`;
+  ghost.style.height = `${photo.h * k}px`;
+  document.body.append(ghost);
+  drag.ghost = ghost;
+
+  elementsOf(drag.id).forEach(el => el.classList.add('moving'));
+  document.body.classList.add('reordering');
+  navigator.vibrate?.(10);
+  updateDrag();
+  requestAnimationFrame(autoScroll);
+}
+
+function updateDrag(): void {
+  if (!drag?.active || !drag.ghost) return;
+  drag.ghost.style.transform = `translate(${drag.x}px, ${drag.y}px) translate(-50%, -50%)`;
+
+  let targetId: number | null = Number(photoOf(document.elementFromPoint(drag.x, drag.y))?.dataset.id ?? NaN);
+  if (Number.isNaN(targetId) || targetId === drag.id) targetId = null;
+  if (targetId === drag.targetId) return;
+
+  elementsOf(drag.targetId).forEach(el => el.classList.remove('drop-before', 'drop-after'));
+  drag.targetId = targetId;
+  // the bar shows which side of the target the photo will land on
+  const from = photos.findIndex(p => p.id === drag!.id);
+  const to = photos.findIndex(p => p.id === targetId);
+  elementsOf(targetId).forEach(el => el.classList.add(from < to ? 'drop-after' : 'drop-before'));
+}
+
+function autoScroll(): void {
+  if (!drag?.active) return;
+  const speed = drag.y < EDGE ? drag.y - EDGE : drag.y > innerHeight - EDGE ? drag.y - (innerHeight - EDGE) : 0;
+  if (speed) {
+    scrollBy(0, speed / 4);
+    updateDrag();
+  }
+  requestAnimationFrame(autoScroll);
+}
+
+function endDrag(commit: boolean): void {
+  if (!drag) return;
+  const { id, targetId, active, ghost, timer } = drag;
+  drag = null;
+  clearTimeout(timer);
+  if (!active) return;
+  ghost?.remove();
+  document.body.classList.remove('reordering');
+  elementsOf(id).forEach(el => el.classList.remove('moving'));
+  elementsOf(targetId).forEach(el => el.classList.remove('drop-before', 'drop-after'));
+
+  const from = photos.findIndex(p => p.id === id);
+  const to = photos.findIndex(p => p.id === targetId);
+  if (!commit || from < 0 || to < 0) return;
   photos.splice(to, 0, photos.splice(from, 1)[0]);
-  over[from < to ? 'after' : 'before'](moving);
-};
-thumbs.ondragend = () => {
-  movingId = null;
   render();
-};
+}
+
+addEventListener('pointerdown', e => {
+  if (drag || !e.isPrimary || e.button !== 0) return;
+  const el = photoOf(e.target);
+  if (!el || (e.target as Element).closest('.rm')) return;
+  drag = {
+    id: Number(el.dataset.id), pointerId: e.pointerId,
+    startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
+    active: false, ghost: null, targetId: null,
+    timer: e.pointerType === 'mouse' ? 0 : window.setTimeout(startDrag, LONG_PRESS_MS),
+  };
+});
+addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.x = e.clientX;
+  drag.y = e.clientY;
+  if (!drag.active) {
+    const moved = Math.hypot(drag.x - drag.startX, drag.y - drag.startY);
+    if (e.pointerType === 'mouse') {
+      if (moved > MOUSE_SLOP) startDrag();
+    } else if (moved > TOUCH_SLOP) {
+      endDrag(false); // the finger is scrolling, not holding
+    }
+    return;
+  }
+  updateDrag();
+});
+addEventListener('pointerup', e => { if (e.pointerId === drag?.pointerId) endDrag(true); });
+addEventListener('pointercancel', e => { if (e.pointerId === drag?.pointerId) endDrag(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape') endDrag(false); });
+
+// keep the browser from scrolling, opening the image menu or starting its own drag meanwhile
+document.addEventListener('touchmove', e => { if (drag?.active) e.preventDefault(); }, { passive: false });
+addEventListener('contextmenu', e => { if (drag || (e.target instanceof HTMLImageElement && photoOf(e.target))) e.preventDefault(); });
+addEventListener('dragstart', e => { if (photoOf(e.target)) e.preventDefault(); });
 
 applyLang();
