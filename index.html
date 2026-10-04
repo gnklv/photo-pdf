@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Фото в PDF</title>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Фото → PDF</h1>
+
+    <div class="drop" id="drop">
+      Перетащите фото сюда<br>или нажмите, чтобы выбрать
+      <input type="file" id="file" accept="image/*" multiple hidden>
+    </div>
+
+    <div class="fields">
+      <label>Формат
+        <select id="format">
+          <option value="210x297">A4</option>
+          <option value="148x210">A5</option>
+          <option value="297x420">A3</option>
+          <option value="215.9x279.4">Letter</option>
+          <option value="102x152">10×15 см</option>
+        </select>
+      </label>
+      <label>Ориентация
+        <select id="orient">
+          <option value="p">Книжная</option>
+          <option value="l">Альбомная</option>
+        </select>
+      </label>
+      <label class="wide">Фото на странице
+        <input type="number" id="perPage" min="1" max="30" value="4">
+      </label>
+      <label>Поля, мм
+        <input type="number" id="margin" min="0" max="50" value="10">
+      </label>
+      <label>Отступ между фото, мм
+        <input type="number" id="gap" min="0" max="50" value="5">
+      </label>
+      <label class="wide">Вписывание
+        <select id="fit">
+          <option value="contain">Целиком, без обрезки</option>
+          <option value="cover">Заполнить ячейку (с обрезкой)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="info">
+      <span id="count">Нет фото</span>
+      <button class="ghost" id="clear" hidden>Очистить</button>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+
+    <div class="spacer"></div>
+    <button id="make" disabled>Скачать PDF</button>
+  </aside>
+
+  <main id="preview">
+    <div class="empty">Добавьте фото — здесь появится предпросмотр страниц</div>
+  </main>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
