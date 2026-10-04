@@ -341,6 +341,7 @@ function startDrag(): void {
   elementsOf(drag.id).forEach(el => el.classList.add('moving'));
   document.body.classList.add('reordering');
   navigator.vibrate?.(10);
+  getSelection()?.removeAllRanges();
   updateDrag();
   requestAnimationFrame(autoScroll);
 }
@@ -423,5 +424,6 @@ addEventListener('keydown', e => { if (e.key === 'Escape') endDrag(false); });
 document.addEventListener('touchmove', e => { if (drag?.active) e.preventDefault(); }, { passive: false });
 addEventListener('contextmenu', e => { if (drag || (e.target instanceof HTMLImageElement && photoOf(e.target))) e.preventDefault(); });
 addEventListener('dragstart', e => { if (photoOf(e.target)) e.preventDefault(); });
+document.addEventListener('selectstart', e => { if (drag) e.preventDefault(); });
 
 applyLang();
