@@ -4,6 +4,8 @@ A small web app: drop in your photos and get a PDF with them laid out evenly acr
 
 Everything runs in the browser — your photos are never uploaded anywhere.
 
+**Live demo: https://gnklv.github.io/photo-pdf/**
+
 ## Features
 
 - Add photos by drag and drop or through the file picker
@@ -29,12 +31,16 @@ Every push to `master` builds the app and publishes it to GitHub Pages via the w
 ## How it works
 
 - `index.html` — markup
-- `src/main.js` — page layout, preview, PDF generation
+- `src/main.ts` — page layout, preview, PDF generation
 - `src/style.css` — styles
 
-The PDF is generated with [jsPDF](https://github.com/parallax/jsPDF); the build uses [Vite](https://vite.dev).
+The PDF is generated with [jsPDF](https://github.com/parallax/jsPDF); the code is TypeScript, built with [Vite](https://vite.dev). `npm run typecheck` runs the type checker on its own.
 
 ## Limitations
 
 - HEIC files open only in Safari
 - Photos are downscaled to 2400 px on the long side and stored as JPEG when written to the PDF
+
+## License
+
+[MIT](LICENSE)

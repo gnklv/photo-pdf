@@ -1,25 +1,74 @@
 import { jsPDF } from 'jspdf';
 import './style.css';
 
-const $ = id => document.getElementById(id);
+type Fit = 'contain' | 'cover';
+
+interface Photo {
+  id: number;
+  url: string;
+  w: number;
+  h: number;
+}
+
+interface Settings {
+  w: number;
+  h: number;
+  margin: number;
+  gap: number;
+  perPage: number;
+  fit: Fit;
+}
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface Placement extends Rect {
+  photo: Photo;
+  cell: Rect;
+}
+
+interface Grid {
+  score: number;
+  cols: number;
+  rows: number;
+  cw: number;
+  ch: number;
+}
+
+function $<T extends HTMLElement = HTMLElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing element #${id}`);
+  return el as T;
+}
+
 const MAX_SIDE = 2400; // max pixels on the long side when written to the PDF
-let photos = [];       // { id, url, w, h }
+let photos: Photo[] = [];
 let nextId = 1;
 
-function settings() {
-  let [w, h] = $('format').value.split('x').map(Number);
-  if ($('orient').value === 'l') [w, h] = [h, w];
-  const num = (id, lo, hi) => Math.min(hi, Math.max(lo, Number($(id).value) || 0));
+function settings(): Settings {
+  const value = (id: string) => $<HTMLInputElement | HTMLSelectElement>(id).value;
+  let [w, h] = value('format').split('x').map(Number);
+  if (value('orient') === 'l') [w, h] = [h, w];
+  const num = (id: string, lo: number, hi: number) =>
+    Math.min(hi, Math.max(lo, Number(value(id)) || 0));
   const gap = num('gap', 0, 50);
   const margin = Math.min(num('margin', 0, 50), Math.min(w, h) / 2 - 5);
-  return { w, h, margin, gap, perPage: Math.round(num('perPage', 1, 30)), fit: $('fit').value };
+  return {
+    w, h, margin, gap,
+    perPage: Math.round(num('perPage', 1, 30)),
+    fit: value('fit') === 'cover' ? 'cover' : 'contain',
+  };
 }
 
 // Splits photos across pages evenly: 10 photos at 4 per page → 4, 3, 3 (not 4, 4, 2)
-function paginate(list, perPage) {
+function paginate(list: Photo[], perPage: number): Photo[][] {
   const pages = Math.ceil(list.length / perPage);
   const base = Math.floor(list.length / pages), extra = list.length % pages;
-  const out = [];
+  const out: Photo[][] = [];
   for (let i = 0, at = 0; i < pages; i++) {
     const n = base + (i < extra ? 1 : 0);
     out.push(list.slice(at, at + n));
@@ -29,10 +78,10 @@ function paginate(list, perPage) {
 }
 
 // Picks the grid where the photos cover the largest area
-// and returns rectangles in mm: { photo, x, y, w, h, cell }
-function layoutPage(items, s) {
+// and returns their rectangles in mm
+function layoutPage(items: Photo[], s: Settings): Placement[] {
   const W = s.w - 2 * s.margin, H = s.h - 2 * s.margin;
-  let best = null;
+  let best: Grid | null = null;
   for (let cols = 1; cols <= items.length; cols++) {
     const rows = Math.ceil(items.length / cols);
     const cw = (W - s.gap * (cols - 1)) / cols;
@@ -47,6 +96,7 @@ function layoutPage(items, s) {
     score -= (cols * rows - items.length) * 1e-6;
     if (!best || score > best.score) best = { score, cols, rows, cw, ch };
   }
+  if (!best) return [];
   const { cols, rows, cw, ch } = best;
   return items.map((photo, i) => {
     const row = Math.floor(i / cols), col = i % cols;
@@ -54,7 +104,7 @@ function layoutPage(items, s) {
     const rowW = inRow * cw + (inRow - 1) * s.gap;
     const cx = s.margin + (W - rowW) / 2 + col * (cw + s.gap);
     const cy = s.margin + row * (ch + s.gap);
-    const cell = { x: cx, y: cy, w: cw, h: ch };
+    const cell: Rect = { x: cx, y: cy, w: cw, h: ch };
     if (s.fit === 'cover') return { photo, ...cell, cell };
     const k = Math.min(cw / photo.w, ch / photo.h);
     const w = photo.w * k, h = photo.h * k;
@@ -62,28 +112,27 @@ function layoutPage(items, s) {
   });
 }
 
-function render() {
+function render(): void {
   const s = settings();
   $('count').textContent = photos.length
     ? `Фото: ${photos.length}, страниц: ${Math.ceil(photos.length / s.perPage)}`
     : 'Нет фото';
   $('clear').hidden = !photos.length;
-  $('make').disabled = !photos.length;
+  $<HTMLButtonElement>('make').disabled = !photos.length;
 
-  const thumbs = $('thumbs');
   thumbs.innerHTML = '';
   for (const p of photos) {
     const el = document.createElement('div');
     el.className = 'thumb';
     el.draggable = true;
-    el.dataset.id = p.id;
+    el.dataset.id = String(p.id);
     el.innerHTML = `<img src="${p.url}" alt=""><button class="rm" title="Убрать">×</button>`;
     thumbs.append(el);
   }
   renderPreview(s);
 }
 
-function renderPreview(s = settings()) {
+function renderPreview(s: Settings = settings()): void {
   const root = $('preview');
   root.innerHTML = '';
   if (!photos.length) {
@@ -103,13 +152,13 @@ function renderPreview(s = settings()) {
     }
     const num = document.createElement('div');
     num.className = 'num';
-    num.textContent = i + 1;
+    num.textContent = String(i + 1);
     page.append(num);
     root.append(page);
   });
 }
 
-function loadImage(url) {
+function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => res(img);
@@ -118,8 +167,8 @@ function loadImage(url) {
   });
 }
 
-async function addFiles(files) {
-  const skipped = [];
+async function addFiles(files: File[]): Promise<void> {
+  const skipped: string[] = [];
   for (const f of files) {
     if (!f.type.startsWith('image/')) continue;
     const url = URL.createObjectURL(f);
@@ -136,7 +185,7 @@ async function addFiles(files) {
 }
 
 // Redraws the photo as a JPEG of the needed size; for cover, crops it to the cell aspect ratio
-async function toJpeg(photo, rect, fit) {
+async function toJpeg(photo: Photo, rect: Rect, fit: Fit): Promise<string> {
   const img = await loadImage(photo.url);
   let sx = 0, sy = 0, sw = photo.w, sh = photo.h;
   if (fit === 'cover') {
@@ -149,15 +198,16 @@ async function toJpeg(photo, rect, fit) {
   c.width = Math.round(sw * k);
   c.height = Math.round(sh * k);
   const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D context is unavailable');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', 0.9);
 }
 
-async function makePdf() {
+async function makePdf(): Promise<void> {
   const s = settings();
-  const btn = $('make');
+  const btn = $<HTMLButtonElement>('make');
   btn.disabled = true;
   try {
     const doc = new jsPDF({
@@ -175,7 +225,7 @@ async function makePdf() {
     doc.save('photos.pdf');
   } catch (e) {
     console.error(e);
-    alert('Не получилось собрать PDF: ' + e.message);
+    alert('Не получилось собрать PDF: ' + (e instanceof Error ? e.message : String(e)));
   } finally {
     btn.textContent = 'Скачать PDF';
     btn.disabled = !photos.length;
@@ -183,8 +233,14 @@ async function makePdf() {
 }
 
 // --- events ---
-$('drop').onclick = () => $('file').click();
-$('file').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+const thumbs = $('thumbs');
+const fileInput = $<HTMLInputElement>('file');
+
+$('drop').onclick = () => fileInput.click();
+fileInput.onchange = () => {
+  addFiles([...(fileInput.files ?? [])]);
+  fileInput.value = '';
+};
 $('make').onclick = makePdf;
 $('clear').onclick = () => {
   photos.forEach(p => URL.revokeObjectURL(p.url));
@@ -193,7 +249,7 @@ $('clear').onclick = () => {
 };
 for (const id of ['format', 'orient', 'perPage', 'margin', 'gap', 'fit']) $(id).oninput = render;
 
-const hasFiles = e => [...e.dataTransfer.types].includes('Files');
+const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 addEventListener('dragover', e => {
   if (!hasFiles(e)) return;
   e.preventDefault();
@@ -204,23 +260,26 @@ addEventListener('drop', e => {
   if (!hasFiles(e)) return;
   e.preventDefault();
   document.body.classList.remove('dragging');
-  addFiles([...e.dataTransfer.files]);
+  addFiles([...(e.dataTransfer?.files ?? [])]);
 });
 
 // removing thumbnails and dragging them to reorder
-const thumbs = $('thumbs');
-let movingId = null;
+const thumbOf = (target: EventTarget | null) =>
+  target instanceof Element ? target.closest<HTMLElement>('.thumb') : null;
+let movingId: number | null = null;
+
 thumbs.onclick = e => {
-  if (!e.target.classList.contains('rm')) return;
-  const id = Number(e.target.parentElement.dataset.id);
+  if (!(e.target instanceof Element) || !e.target.classList.contains('rm')) return;
+  const id = Number(thumbOf(e.target)?.dataset.id);
   const p = photos.find(p => p.id === id);
+  if (!p) return;
   URL.revokeObjectURL(p.url);
   photos = photos.filter(p => p.id !== id);
   render();
 };
 thumbs.ondragstart = e => {
-  const el = e.target.closest('.thumb');
-  if (!el) return;
+  const el = thumbOf(e.target);
+  if (!el || !e.dataTransfer) return;
   movingId = Number(el.dataset.id);
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', '');
@@ -229,12 +288,13 @@ thumbs.ondragstart = e => {
 thumbs.ondragover = e => {
   if (movingId === null) return;
   e.preventDefault();
-  const over = e.target.closest('.thumb');
+  const over = thumbOf(e.target);
   if (!over || Number(over.dataset.id) === movingId) return;
   const from = photos.findIndex(p => p.id === movingId);
   const to = photos.findIndex(p => p.id === Number(over.dataset.id));
-  photos.splice(to, 0, photos.splice(from, 1)[0]);
   const moving = thumbs.querySelector(`[data-id="${movingId}"]`);
+  if (from < 0 || to < 0 || !moving) return;
+  photos.splice(to, 0, photos.splice(from, 1)[0]);
   over[from < to ? 'after' : 'before'](moving);
 };
 thumbs.ondragend = () => {

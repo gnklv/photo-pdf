@@ -3,16 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "description": "A small web app that lays photos out evenly across pages and generates a PDF, entirely in the browser",
+  "license": "MIT",
+  "homepage": "https://gnklv.github.io/photo-pdf/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gnklv/photo-pdf.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "typecheck": "tsc",
+    "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "jspdf": "^4.2.1"
   },
   "devDependencies": {
+    "typescript": "^7.0.2",
     "vite": "^8.3.2"
   }
 }
