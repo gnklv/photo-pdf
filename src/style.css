@@ -25,7 +25,7 @@ h1 { font-size: 18px; margin: 0; }
   text-align: center; color: var(--muted); cursor: pointer; transition: .15s;
 }
 .drop:hover, body.dragging .drop { border-color: var(--accent); color: var(--accent); }
-.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 label.wide { grid-column: 1 / -1; }
 select, input[type=number] {
@@ -61,9 +61,23 @@ main { padding: 28px; display: flex; flex-wrap: wrap; gap: 24px; align-content: 
 .page img { position: absolute; display: block; }
 .page .num { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); }
 .spacer { flex: 1; }
+.touch-only { display: none; }
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; }
   aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
-  main { padding: 16px; }
+  main { padding: 16px 16px calc(96px + env(safe-area-inset-bottom)); }
   .page { width: 100%; max-width: 340px; }
+  /* below 16px iOS zooms the page when a field gets focus */
+  select, input[type=number] { font-size: 16px; padding: 9px 10px; }
+  #make {
+    position: fixed; z-index: 10; left: 16px; right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    padding: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  }
+}
+/* touch screens have no hover: keep the remove button visible and easier to hit */
+@media (hover: none) {
+  .mouse-only { display: none; }
+  .touch-only { display: inline; }
+  .thumb .rm { opacity: 1; width: 26px; height: 26px; line-height: 26px; font-size: 16px; }
 }
